@@ -267,6 +267,9 @@ function Pricing() {
           <p className="mt-4 text-muted-foreground md:text-lg">
             Simple, transparent pricing to fit your trading ambitions. All plans are billed annually.
           </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Create an account to pick a plan—payment instructions are shared inside the app after you sign up.
+          </p>
         </div>
         <div className="mt-12 grid gap-8 md:grid-cols-3 items-start">
           {loading ? (
@@ -299,7 +302,9 @@ function Pricing() {
                   ))}
                 </ul>
                 <Button className="w-full mt-4" variant={tier.popular ? "default" : "outline"} asChild>
-                  <Link href={`/subscription/pay?plan=${tier.id}`}>Choose Plan</Link>
+                  <Link href={`/signup?plan=${tier.id}`}>
+                    Sign Up to Choose Plan
+                  </Link>
                 </Button>
               </CardContent>
             </Card>
