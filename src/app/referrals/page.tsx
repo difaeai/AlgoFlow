@@ -165,11 +165,11 @@ export default function ReferralsPage() {
               <TableBody>
                 {loadingData ? (
                      <TableRow>
-                        <TableCell colSpan="4" className="text-center">Loading commissions...</TableCell>
+                        <TableCell colSpan={4} className="text-center">Loading commissions...</TableCell>
                     </TableRow>
                 ) : !commissions || commissions.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan="4" className="text-center text-muted-foreground">
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
                             No commissions earned yet.
                         </TableCell>
                     </TableRow>

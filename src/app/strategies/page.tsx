@@ -45,7 +45,7 @@ export default function StrategiesContent() {
                     <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Take Profit(s)</span>
                         <div className="flex gap-2">
-                            {strategy.tp.map(price => (
+                            {strategy.tp.map((price: number) => (
                                 <Badge key={price} variant="secondary" className="font-code">${price.toLocaleString()}</Badge>
                             ))}
                         </div>

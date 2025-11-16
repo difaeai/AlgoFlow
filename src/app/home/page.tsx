@@ -17,6 +17,7 @@ import {
   Target,
   Loader2
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Link from 'next/link';
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -136,7 +137,15 @@ function TradingSettings({ planId }: { planId?: keyof typeof tiers }) {
     );
 }
 
-function StatCard({ title, value, icon: Icon, description, progress }) {
+interface StatCardProps {
+    title: string;
+    value: string;
+    description: string;
+    icon: LucideIcon;
+    progress?: number;
+}
+
+function StatCard({ title, value, icon: Icon, description, progress }: StatCardProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -154,7 +163,9 @@ function StatCard({ title, value, icon: Icon, description, progress }) {
   );
 }
 
-function ConnectedMarket({ connectedExchange }) {
+type ConnectedExchange = UserProfile['connectedExchange'];
+
+function ConnectedMarket({ connectedExchange }: { connectedExchange?: ConnectedExchange }) {
     return (
         <Card>
             <CardHeader>

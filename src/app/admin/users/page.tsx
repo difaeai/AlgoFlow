@@ -143,7 +143,7 @@ export default function AdminUsersPage() {
                 {loading ? (
                   <TableRow>
                     <TableCell
-                      colSpan="4"
+                      colSpan={4}
                       className="text-center text-muted-foreground"
                     >
                       Loading users...
@@ -152,7 +152,7 @@ export default function AdminUsersPage() {
                 ) : !regularUsers || regularUsers.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan="4"
+                      colSpan={4}
                       className="text-center text-muted-foreground"
                     >
                       No users found.

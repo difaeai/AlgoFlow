@@ -58,8 +58,21 @@ interface Simulation {
     calculatedFee: number;
     simulationDate: { seconds: number };
 }
-  
-function FeeSimulator({ users, loading, onSimulate }) {
+
+type SimulationPayload = Omit<Simulation, 'id' | 'simulationDate'>;
+
+interface FeeSimulatorProps {
+    users?: User[];
+    loading: boolean;
+    onSimulate: (simulation: SimulationPayload) => void;
+}
+
+interface SimulationHistoryProps {
+    simulations?: Simulation[];
+    loading: boolean;
+}
+
+function FeeSimulator({ users, loading, onSimulate }: FeeSimulatorProps) {
   const [selectedUserId, setSelectedUserId] = useState<string | undefined>();
   const [monthlyProfit, setMonthlyProfit] = useState<number | undefined>();
 
@@ -149,7 +162,7 @@ function FeeSimulator({ users, loading, onSimulate }) {
   );
 }
 
-function SimulationHistory({ simulations, loading }) {
+function SimulationHistory({ simulations, loading }: SimulationHistoryProps) {
     return (
         <Card>
             <CardHeader>

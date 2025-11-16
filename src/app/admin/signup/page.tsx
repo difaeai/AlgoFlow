@@ -16,7 +16,7 @@ import { Logo } from "@/components/logo";
 import { useAuth, useFirestore } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 
@@ -30,7 +30,7 @@ export default function AdminSignupPage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
 
-    const handleSignUp = async (e) => {
+    const handleSignUp = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError('');
 

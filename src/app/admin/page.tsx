@@ -203,12 +203,12 @@ export default function AdminDashboard() {
               <TableBody>
                 {isLoading ? (
                     <TableRow>
-                        <TableCell colSpan="5" className="text-center text-muted-foreground">Loading...</TableCell>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">Loading...</TableCell>
                     </TableRow>
                 ) : recentSubscriptionRequests.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan="5"
+                      colSpan={5}
                       className="text-center text-muted-foreground"
                     >
                       No recent subscription requests.
