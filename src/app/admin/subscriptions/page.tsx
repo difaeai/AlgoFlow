@@ -68,7 +68,26 @@ interface UserProfile {
 
 const commissionRates = [0.005, 0.004, 0.003, 0.002, 0.001]; // L1 to L5
 
-function PendingTab({ subscriptions, usersById, loading }) {
+type UsersByIdMap = Map<string, User>;
+
+interface PendingTabProps {
+    subscriptions?: Subscription[];
+    usersById: UsersByIdMap;
+    loading: boolean;
+}
+
+interface ApprovedTabProps {
+    subscriptions?: Subscription[];
+    usersById: UsersByIdMap;
+    loading: boolean;
+}
+
+interface ProfitShareSettingsTabProps {
+    users?: User[];
+    loading: boolean;
+}
+
+function PendingTab({ subscriptions, usersById, loading }: PendingTabProps) {
     const firestore = useFirestore();
     const { user: adminUser } = useUser();
     const { toast } = useToast();
@@ -221,10 +240,10 @@ function PendingTab({ subscriptions, usersById, loading }) {
             </TableHeader>
             <TableBody>
               {loading ? (
-                  <TableRow><TableCell colSpan="5" className="text-center">Loading...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center">Loading...</TableCell></TableRow>
               ) : !subscriptions || subscriptions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan="5" className="text-center text-muted-foreground">No pending subscriptions.</TableCell>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">No pending subscriptions.</TableCell>
                 </TableRow>
               ) : (
               subscriptions.map((sub) => {
@@ -262,7 +281,7 @@ function PendingTab({ subscriptions, usersById, loading }) {
     )
 }
 
-function ApprovedTab({ subscriptions, usersById, loading }) {
+function ApprovedTab({ subscriptions, usersById, loading }: ApprovedTabProps) {
     return (
         <Card>
         <CardHeader>
@@ -284,10 +303,10 @@ function ApprovedTab({ subscriptions, usersById, loading }) {
             </TableHeader>
             <TableBody>
               {loading ? (
-                  <TableRow><TableCell colSpan="5" className="text-center">Loading...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center">Loading...</TableCell></TableRow>
               ) : !subscriptions || subscriptions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan="5" className="text-center text-muted-foreground">No approved payments.</TableCell>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">No approved payments.</TableCell>
                 </TableRow>
               ) : (
                 subscriptions.map((sub) => {
@@ -317,10 +336,10 @@ function ApprovedTab({ subscriptions, usersById, loading }) {
     )
 }
 
-function ProfitShareSettingsTab({ users, loading }) {
+function ProfitShareSettingsTab({ users, loading }: ProfitShareSettingsTabProps) {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [profitShareValues, setProfitShareValues] = useState({});
+    const [profitShareValues, setProfitShareValues] = useState<Record<string, string>>({});
 
     const handleUpdateProfitShare = async (userId: string) => {
         if (!firestore) return;
@@ -348,7 +367,7 @@ function ProfitShareSettingsTab({ users, loading }) {
         }
     };
     
-    const handleInputChange = (userId, value) => {
+    const handleInputChange = (userId: string, value: string) => {
         setProfitShareValues(prev => ({ ...prev, [userId]: value }));
     };
 
@@ -374,11 +393,11 @@ function ProfitShareSettingsTab({ users, loading }) {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan="5" className="text-center">Loading users...</TableCell>
+                                <TableCell colSpan={5} className="text-center">Loading users...</TableCell>
                             </TableRow>
                         ) : !users || users.length === 0 ? (
                            <TableRow>
-                                <TableCell colSpan="5" className="text-center text-muted-foreground">No users to configure.</TableCell>
+                                <TableCell colSpan={5} className="text-center text-muted-foreground">No users to configure.</TableCell>
                             </TableRow>
                         ) : (
                             users.filter(u => !u.isAdmin).map((user) => (
@@ -473,15 +492,16 @@ export default function AdminSubscriptionsPage() {
         };
     }, [subscriptions]);
 
-    const usersById = useMemo(() => {
-        if (!users) return new Map();
+    const usersById = useMemo<UsersByIdMap>(() => {
+        if (!users) return new Map<string, User>();
         return users.reduce((acc, user) => {
             acc.set(user.id, user);
             return acc;
         }, new Map<string, User>());
     }, [users]);
     
-    const isLoading = profileLoading || (userProfile?.isAdmin && (subsLoading || usersLoading));
+    const isAdmin = Boolean(userProfile?.isAdmin);
+    const isLoading = profileLoading || (isAdmin && (subsLoading || usersLoading));
 
   return (
     <AdminShell title="Subscription & Fee Management">
@@ -493,16 +513,16 @@ export default function AdminSubscriptionsPage() {
           <TabsTrigger value="settings">Profit Share Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="pending">
-            <PendingTab subscriptions={pendingSubscriptions} usersById={usersById} loading={isLoading} />
+            <PendingTab subscriptions={pendingSubscriptions} usersById={usersById} loading={Boolean(isLoading)} />
         </TabsContent>
         <TabsContent value="invoices">
             <FeeInvoicesTab />
         </TabsContent>
         <TabsContent value="approved">
-            <ApprovedTab subscriptions={approvedSubscriptions} usersById={usersById} loading={isLoading} />
+            <ApprovedTab subscriptions={approvedSubscriptions} usersById={usersById} loading={Boolean(isLoading)} />
         </TabsContent>
         <TabsContent value="settings">
-            <ProfitShareSettingsTab users={users} loading={isLoading} />
+            <ProfitShareSettingsTab users={users} loading={Boolean(isLoading)} />
         </TabsContent>
       </Tabs>
     </AdminShell>

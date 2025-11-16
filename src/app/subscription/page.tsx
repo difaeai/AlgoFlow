@@ -66,11 +66,13 @@ const tiers = [
         "Early Access to New Features",
       ],
     },
-  ];
+  ] as const;
+
+type TierId = (typeof tiers)[number]['id'];
 
 interface UserProfile {
     subscriptionStatus: 'inactive' | 'pending' | 'active' | 'rejected';
-    planId: string;
+    planId: TierId;
 }
 
 function RejectedNotice() {
@@ -107,7 +109,7 @@ function PendingApproval() {
     );
 }
 
-function ActiveSubscription({userProfile}) {
+function ActiveSubscription({ userProfile }: { userProfile: UserProfile }) {
     const currentPlan = tiers.find(t => t.id === userProfile.planId);
     const renewalDate = new Date();
     renewalDate.setFullYear(renewalDate.getFullYear() + 1);

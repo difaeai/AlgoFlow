@@ -29,11 +29,21 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 
 
+type ExchangeType = 'crypto' | 'forex' | 'stocks';
+
+interface ConnectedExchange {
+    type: ExchangeType;
+    name: string;
+}
+
 interface UserProfile {
-    connectedExchange?: {
-        type: 'crypto' | 'forex' | 'stocks';
-        name: string;
-    }
+    connectedExchange?: ConnectedExchange | null;
+}
+
+interface ExchangeConnectProps {
+    connectedExchange?: ConnectedExchange | null;
+    onConnect: (exchangeData: ConnectedExchange) => void;
+    onDisconnect: () => void;
 }
 
 function AlreadyConnectedAlert({ connectedExchangeName }: { connectedExchangeName: string }) {
@@ -48,9 +58,9 @@ function AlreadyConnectedAlert({ connectedExchangeName }: { connectedExchangeNam
     )
 }
 
-function CryptoConnect({ connectedExchange, onConnect, onDisconnect }) {
+function CryptoConnect({ connectedExchange, onConnect, onDisconnect }: ExchangeConnectProps) {
     const isEnabled = !connectedExchange || connectedExchange?.type === 'crypto';
-    const [exchangeName, setExchangeName] = useState('binance');
+    const [exchangeName, setExchangeName] = useState<ConnectedExchange['name']>('binance');
 
   return (
     <Card>
@@ -101,7 +111,7 @@ function CryptoConnect({ connectedExchange, onConnect, onDisconnect }) {
   );
 }
 
-function ForexConnect({ connectedExchange, onConnect, onDisconnect }) {
+function ForexConnect({ connectedExchange, onConnect, onDisconnect }: ExchangeConnectProps) {
     const isEnabled = !connectedExchange || connectedExchange?.type === 'forex';
     return (
       <Card>
@@ -147,7 +157,7 @@ function ForexConnect({ connectedExchange, onConnect, onDisconnect }) {
     );
   }
 
-function StockConnect({ connectedExchange, onConnect, onDisconnect }) {
+function StockConnect({ connectedExchange, onConnect, onDisconnect }: ExchangeConnectProps) {
     const isEnabled = !connectedExchange || connectedExchange?.type === 'stocks';
     return (
         <Card>
@@ -194,7 +204,7 @@ export default function ConnectPage() {
     const { data: userProfile, loading: profileLoading } = useDoc<UserProfile>('users', user?.uid);
     const { toast } = useToast();
 
-    const handleConnect = async (exchangeData: UserProfile['connectedExchange']) => {
+    const handleConnect = async (exchangeData: ConnectedExchange) => {
         if (!firestore || !user?.uid) return;
         const userRef = doc(firestore, 'users', user.uid);
         try {

@@ -26,6 +26,8 @@ import { useDoc } from "@/firebase/firestore/use-doc";
 import { doc, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
+type PlanTier = 'starter' | 'growth' | 'max';
+
 interface UserProfile {
     desiredInvestment?: number;
     monthlyTarget?: number;
@@ -33,10 +35,10 @@ interface UserProfile {
     dailyDrawdown?: number;
     paperMode?: boolean;
     subscriptionStatus?: string;
-    planId?: string;
+    planId?: PlanTier;
 }
 
-const tiers = {
+const tiers: Record<PlanTier, { name: string; targetRange: string }> = {
     starter: { name: "Starter", targetRange: "2% to 5%" },
     growth: { name: "Growth", targetRange: "6% to 17%" },
     max: { name: "Max", targetRange: "18% to 39%" },
@@ -87,7 +89,7 @@ export default function SettingsPage() {
     };
 
     const loading = userLoading || profileLoading;
-    const planDetails = userProfile?.planId && tiers[userProfile.planId];
+    const planDetails = userProfile?.planId ? tiers[userProfile.planId] : undefined;
     const isInactive = userProfile?.subscriptionStatus !== 'active';
 
   return (

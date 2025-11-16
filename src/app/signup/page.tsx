@@ -17,7 +17,7 @@ import { Logo } from "@/components/logo";
 import { useAuth, useFirestore } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, getDocs, collection, query, where, serverTimestamp } from "firebase/firestore";
-import { useState, Suspense } from "react";
+import { useState, Suspense, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 
@@ -92,7 +92,7 @@ function SignupFormComponent() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
 
-    const handleSignUp = async (e) => {
+    const handleSignUp = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError('');
 
