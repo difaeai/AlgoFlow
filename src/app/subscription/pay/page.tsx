@@ -50,13 +50,14 @@ function SuccessScreen() {
 }
 
 function PaySubscriptionFormComponent() {
-  const { user } = useUser();
+  const { user, loading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  const [selectedPlanId, setSelectedPlanId] = useState(searchParams.get('plan') || 'growth');
+  const planQuery = searchParams.get('plan');
+  const [selectedPlanId, setSelectedPlanId] = useState(planQuery || 'growth');
   const [paidAmount, setPaidAmount] = useState<number | ''>('');
   
   const [file, setFile] = useState<File | null>(null);
@@ -67,7 +68,14 @@ function PaySubscriptionFormComponent() {
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const selectedPlan = tiers.find((tier) => tier.id === selectedPlanId);
-  
+
+  useEffect(() => {
+    if (!loading && !user) {
+      const redirectPath = planQuery ? `/signup?plan=${planQuery}` : '/signup';
+      router.replace(redirectPath);
+    }
+  }, [loading, user, router, planQuery]);
+
   useEffect(() => {
     if (selectedPlan) {
       setPaidAmount(selectedPlan.price);
@@ -155,6 +163,19 @@ function PaySubscriptionFormComponent() {
       setIsLoading(false);
     }
   };
+
+  if (!loading && !user) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardContent>
+          <div className="py-12 text-center space-y-2">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+            <CardDescription>Redirecting you to sign up before choosing a plan...</CardDescription>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
       <Card className="w-full max-w-2xl mx-auto">
