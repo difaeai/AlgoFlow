@@ -1,0 +1,17 @@
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // - Anyone can read from this bucket.
+    // - Only authenticated users can write to this bucket.
+    // - The size of the file must be less than 1MB.
+    // - The content type of the file must be an image.
+    match /{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null &&
+        request.resource.size < 1 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+  }
+}
