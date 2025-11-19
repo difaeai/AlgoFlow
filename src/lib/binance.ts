@@ -88,6 +88,22 @@ interface BtcTickerPrice {
   price: string;
 }
 
+export interface BinanceAccountInformation {
+  accountType: string;
+  canTrade: boolean;
+  canWithdraw: boolean;
+  canDeposit: boolean;
+  updateTime: number;
+}
+
+export async function verifyBinanceAccount(
+  apiKey: string,
+  apiSecret: string,
+): Promise<BinanceAccountInformation> {
+  const account = await signedRequest<BinanceAccountInformation>(apiKey, apiSecret, "/api/v3/account");
+  return account;
+}
+
 export async function fetchWalletBalanceUSD(apiKey: string, apiSecret: string): Promise<number> {
   const assets = await signedRequest<UserAsset[]>(apiKey, apiSecret, "/sapi/v3/asset/getUserAsset", {
     method: "POST",
