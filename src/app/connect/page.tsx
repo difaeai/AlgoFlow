@@ -26,7 +26,7 @@ import { useUser, useFirestore } from "@/firebase";
 import { useDoc } from "@/firebase/firestore/use-doc";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   Bot,
@@ -37,6 +37,7 @@ import {
   LockKeyhole,
   LogIn,
   ShieldCheck,
+  Wallet,
   Zap,
 } from "lucide-react";
 
@@ -137,6 +138,9 @@ const defaultPermissions: BinancePermissions = {
   withdrawals: true,
 };
 
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+
 function AlreadyConnectedAlert({ connectedExchangeName }: { connectedExchangeName: string }) {
   return (
     <Alert variant="default" className="bg-secondary">
@@ -168,6 +172,51 @@ export default function ConnectPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
   const [binanceSessionEmail, setBinanceSessionEmail] = useState<string | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
+
+  const storedApiKey = userProfile?.binanceLink?.apiKey ?? null;
+  const storedApiSecret = userProfile?.binanceLink?.apiSecret ?? null;
+  const hasStoredCredentials = Boolean(storedApiKey && storedApiSecret);
+
+  const fetchWalletBalance = useCallback(
+    async (apiKey: string, apiSecret: string) => {
+      setWalletLoading(true);
+      setWalletError(null);
+      try {
+        const response = await fetch("/api/binance/wallet", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey, apiSecret }),
+        });
+        const payload = (await response.json()) as { totalBalanceUSD?: number; error?: string };
+        if (!response.ok) {
+          throw new Error(payload?.error || "Unable to fetch wallet balance from Binance.");
+        }
+        setWalletBalance(
+          typeof payload.totalBalanceUSD === "number" ? payload.totalBalanceUSD : null
+        );
+      } catch (error) {
+        console.error("Error fetching Binance wallet balance:", error);
+        setWalletBalance(null);
+        setWalletError(
+          error instanceof Error
+            ? error.message
+            : "Could not fetch live wallet balance. Check your API credentials."
+        );
+      } finally {
+        setWalletLoading(false);
+      }
+    },
+    []
+  );
+
+  const refreshStoredWalletBalance = useCallback(() => {
+    if (storedApiKey && storedApiSecret) {
+      void fetchWalletBalance(storedApiKey, storedApiSecret);
+    }
+  }, [fetchWalletBalance, storedApiKey, storedApiSecret]);
 
   const isConnected = useMemo(
     () => userProfile?.connectedExchange?.name === "binance",
@@ -180,13 +229,33 @@ export default function ConnectPage() {
       setPermissions({ ...defaultPermissions, ...(userProfile.binanceLink.permissions ?? {}) });
       setBinanceLoginComplete(userProfile.binanceLink.session?.status === "active");
       setBinanceSessionEmail(userProfile.binanceLink.session?.email ?? null);
+      if (userProfile.binanceLink.session?.status !== "active") {
+        setWalletBalance(null);
+      }
     } else {
       setPermissions({ ...defaultPermissions });
       setBinanceLoginComplete(false);
       setBinanceSessionEmail(null);
       setPassphrase("AlgoFlow-Bot");
+      setWalletBalance(null);
+      setWalletError(null);
     }
   }, [userProfile?.binanceLink]);
+
+  useEffect(() => {
+    if (binanceLoginComplete && storedApiKey && storedApiSecret) {
+      void fetchWalletBalance(storedApiKey, storedApiSecret);
+    }
+    if (!binanceLoginComplete) {
+      setWalletBalance(null);
+      setWalletError(null);
+    }
+  }, [
+    binanceLoginComplete,
+    storedApiKey,
+    storedApiSecret,
+    fetchWalletBalance,
+  ]);
 
   const openBinanceLogin = () => {
     setIsLoginWindowOpen(true);
@@ -206,6 +275,7 @@ export default function ConnectPage() {
       setLoginEmail("");
       setLoginPassword("");
       setLoginCode("");
+      setWalletBalance(null);
       toast({
         title: "Binance Session Created",
         description:
@@ -250,6 +320,7 @@ export default function ConnectPage() {
         title: "Binance Connected",
         description: "AlgoFlow now has continuous access to your Binance account.",
       });
+      await fetchWalletBalance(sanitizedKey, sanitizedSecret);
       setApiKey("");
       setApiSecret("");
       setAcknowledged(false);
@@ -281,6 +352,9 @@ export default function ConnectPage() {
       setApiKey("");
       setApiSecret("");
       setAcknowledged(false);
+      setWalletBalance(null);
+      setWalletError(null);
+      setWalletLoading(false);
     } catch (error) {
       console.error("Error disconnecting exchange:", error);
       toast({
@@ -295,6 +369,9 @@ export default function ConnectPage() {
     setBinanceLoginComplete(false);
     setBinanceSessionEmail(null);
     setAcknowledged(false);
+    setWalletBalance(null);
+    setWalletError(null);
+    setWalletLoading(false);
     if (!firestore || !user?.uid || !userProfile?.binanceLink) return;
     const userRef = doc(firestore, "users", user.uid);
     try {
@@ -337,7 +414,11 @@ export default function ConnectPage() {
   };
 
   const connectButtonDisabled =
-    !apiKey.trim() || !apiSecret.trim() || !acknowledged || !binanceLoginComplete || !Object.values(permissions).every(Boolean);
+    !apiKey.trim() ||
+    !apiSecret.trim() ||
+    !acknowledged ||
+    !binanceLoginComplete ||
+    !Object.values(permissions).every(Boolean);
 
   if (userLoading || profileLoading) {
     return (
@@ -359,8 +440,13 @@ export default function ConnectPage() {
                   Log into Binance without leaving AlgoFlow, authorize the bot, and let us manage spot, futures, margin, and withdrawals nonstop.
                 </CardDescription>
               </div>
-              <Badge variant="secondary" className={`text-sm ${isConnected ? "bg-emerald-500 text-white" : "bg-white/20 text-white"}`}>
-                {isConnected ? "Connected" : "Not Connected"}
+              <Badge
+                variant="secondary"
+                className={`text-sm ${
+                  binanceLoginComplete ? "bg-emerald-500 text-white" : "bg-white/20 text-white"
+                }`}
+              >
+                {binanceLoginComplete ? (isConnected ? "Linked" : "Session Ready") : "Login Required"}
               </Badge>
             </div>
           </CardHeader>
@@ -387,9 +473,71 @@ export default function ConnectPage() {
           </CardContent>
         </Card>
 
-        {isConnected && (
+        {binanceLoginComplete && isConnected && (
           <AlreadyConnectedAlert connectedExchangeName="Binance" />
         )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline">Binance Account Connectivity</CardTitle>
+            <CardDescription>
+              Authenticate with your Binance username and password to unlock live connectivity status and wallet balances.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!binanceLoginComplete ? (
+              <div className="rounded-lg border border-dashed bg-muted/40 p-4 text-sm text-muted-foreground">
+                Enter your Binance email and password via the login flow below. Once verified, we will display whether your account
+                is linked to AlgoFlow along with the total funds detected in your wallet.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-lg border bg-card px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Connectivity Status</p>
+                  <p className="text-lg font-semibold">
+                    {isConnected ? "Account linked to AlgoFlow" : "Authenticated - link API keys to finish"}
+                  </p>
+                  {binanceSessionEmail && (
+                    <p className="text-sm text-muted-foreground">Session owner: {binanceSessionEmail}</p>
+                  )}
+                </div>
+                <div className="rounded-lg border bg-card px-4 py-3">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Total wallet balance</span>
+                    <Wallet className="h-4 w-4 text-primary" />
+                  </div>
+                  <p className="text-3xl font-bold">
+                    {walletLoading
+                      ? "Fetching live balance..."
+                      : walletBalance !== null
+                      ? formatCurrency(walletBalance)
+                      : hasStoredCredentials
+                      ? "Balance unavailable"
+                      : "Provide API keys to view"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Live wallet totals refresh using Binance's signed API after each successful session.
+                  </p>
+                  {walletError && (
+                    <p className="mt-2 text-sm text-destructive">{walletError}</p>
+                  )}
+                  {binanceLoginComplete && hasStoredCredentials && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={refreshStoredWalletBalance}
+                      disabled={walletLoading}
+                    >
+                      {walletLoading ? "Refreshing..." : "Refresh live balance"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
           <div className="space-y-6">
@@ -405,9 +553,7 @@ export default function ConnectPage() {
                   <div className="flex items-center gap-3">
                     <LockKeyhole className="h-10 w-10 rounded-full bg-background p-2 text-primary" />
                     <div>
-                      <p className="text-sm font-semibold">
-                        {binanceLoginComplete ? "Binance session ready" : "Action required: Login"}
-                      </p>
+                      <p className="text-sm font-semibold">{binanceLoginComplete ? "Binance session ready" : "Action required: Login"}</p>
                       <p className="text-xs text-muted-foreground">
                         {binanceLoginComplete
                           ? "We are securely holding an authenticated Binance session for this browser."
