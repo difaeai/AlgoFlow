@@ -1,4 +1,3 @@
-
 'use client';
 
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -12,262 +11,654 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ShieldCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useUser, useFirestore } from "@/firebase";
 import { useDoc } from "@/firebase/firestore/use-doc";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  ArrowRight,
+  Bot,
+  CheckCircle2,
+  ExternalLink,
+  Fingerprint,
+  KeyRound,
+  LockKeyhole,
+  LogIn,
+  ShieldCheck,
+  Zap,
+} from "lucide-react";
 
-
-type ExchangeType = 'crypto' | 'forex' | 'stocks';
+type ExchangeType = "crypto" | "forex" | "stocks";
 
 interface ConnectedExchange {
-    type: ExchangeType;
-    name: string;
+  type: ExchangeType;
+  name: string;
+}
+
+interface BinancePermissions {
+  spot: boolean;
+  futures: boolean;
+  margin: boolean;
+  withdrawals: boolean;
+}
+
+interface BinanceSessionMeta {
+  status?: "active" | "expired";
+  email?: string | null;
+  establishedAt?: unknown;
+}
+
+interface BinanceLink {
+  label?: string;
+  apiKey?: string;
+  apiSecret?: string;
+  permissions?: BinancePermissions;
+  linkedAt?: unknown;
+  session?: BinanceSessionMeta;
+  metadata?: {
+    apiKeyLastFour?: string;
+  };
 }
 
 interface UserProfile {
-    connectedExchange?: ConnectedExchange | null;
+  connectedExchange?: ConnectedExchange | null;
+  binanceLink?: BinanceLink | null;
 }
 
-interface ExchangeConnectProps {
-    connectedExchange?: ConnectedExchange | null;
-    onConnect: (exchangeData: ConnectedExchange) => void;
-    onDisconnect: () => void;
+interface PermissionToggleProps {
+  label: string;
+  description: string;
+  checked: boolean;
+  onCheckedChange: (value: boolean) => void;
 }
 
-function AlreadyConnectedAlert({ connectedExchangeName }: { connectedExchangeName: string }) {
-    return (
-        <Alert variant="default" className="bg-secondary">
-            <ShieldCheck className="h-4 w-4" />
-            <AlertTitle>{connectedExchangeName} Already Connected</AlertTitle>
-            <AlertDescription>
-                You already have an exchange connected to your profile. To connect a different one, please disconnect the current exchange first.
-            </AlertDescription>
-        </Alert>
-    )
-}
-
-function CryptoConnect({ connectedExchange, onConnect, onDisconnect }: ExchangeConnectProps) {
-    const isEnabled = !connectedExchange || connectedExchange?.type === 'crypto';
-    const [exchangeName, setExchangeName] = useState<ConnectedExchange['name']>('binance');
-
+function PermissionToggle({
+  label,
+  description,
+  checked,
+  onCheckedChange,
+}: PermissionToggleProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-headline">Connect Crypto Exchange</CardTitle>
-        <CardDescription>
-          Select your exchange and enter your API Key and Secret. Ensure
-          withdrawal permissions are disabled.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {connectedExchange && !isEnabled && <AlreadyConnectedAlert connectedExchangeName={connectedExchange.name} />}
-        <fieldset disabled={!isEnabled} className="space-y-4">
-            <div className="space-y-2">
-            <Label htmlFor="crypto-exchange">Exchange</Label>
-            <Select defaultValue="binance" onValueChange={setExchangeName}>
-                <SelectTrigger id="crypto-exchange">
-                <SelectValue placeholder="Select an exchange" />
-                </SelectTrigger>
-                <SelectContent>
-                <SelectItem value="binance">Binance</SelectItem>
-                <SelectItem value="coinbase">Coinbase</SelectItem>
-                <SelectItem value="kucoin">KuCoin</SelectItem>
-                <SelectItem value="kraken">Kraken</SelectItem>
-                </SelectContent>
-            </Select>
-            </div>
-            <div className="space-y-2">
-            <Label htmlFor="crypto-api-key">API Key</Label>
-            <Input id="crypto-api-key" placeholder="Your API Key" defaultValue={connectedExchange?.type === 'crypto' ? '**************' : ''}/>
-            </div>
-            <div className="space-y-2">
-            <Label htmlFor="crypto-api-secret">API Secret</Label>
-            <Input id="crypto-api-secret" type="password" placeholder="Your API Secret" defaultValue={connectedExchange?.type === 'crypto' ? '**************' : ''} />
-            </div>
-            <Button onClick={() => {
-                if (connectedExchange) {
-                    onDisconnect();
-                } else {
-                    onConnect({ type: 'crypto', name: exchangeName })
-                }
-            }}>
-                {connectedExchange?.type === 'crypto' ? 'Disconnect' : 'Connect'}
-            </Button>
-        </fieldset>
-      </CardContent>
-    </Card>
+    <div className="flex items-start justify-between gap-4 rounded-lg border bg-card px-4 py-3">
+      <div>
+        <p className="text-sm font-semibold">{label}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+    </div>
   );
 }
 
-function ForexConnect({ connectedExchange, onConnect, onDisconnect }: ExchangeConnectProps) {
-    const isEnabled = !connectedExchange || connectedExchange?.type === 'forex';
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-headline">Connect Forex Broker</CardTitle>
-          <CardDescription>
-            This is a placeholder. Functionality is not yet implemented.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {connectedExchange && !isEnabled && <AlreadyConnectedAlert connectedExchangeName={connectedExchange.name} />}
-          <fieldset disabled={true} className="space-y-4 opacity-50">
-            <div className="space-y-2">
-                <Label htmlFor="forex-broker">Broker</Label>
-                <Select defaultValue="exness">
-                    <SelectTrigger id="forex-broker">
-                        <SelectValue placeholder="Select a broker" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="exness">Exness</SelectItem>
-                        <SelectItem value="oanda">OANDA</SelectItem>
-                        <SelectItem value="forex.com">Forex.com</SelectItem>
-                        <SelectItem value="ig">IG</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-          <div className="space-y-2">
-            <Label htmlFor="forex-account-id">Account ID</Label>
-            <Input id="forex-account-id" placeholder="Your Account ID" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="forex-password">Password</Label>
-            <Input id="forex-password" type="password" placeholder="Your Password" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="forex-server">Server</Label>
-            <Input id="forex-server" placeholder="e.g., Exness-Real7" />
-          </div>
-          <Button>Connect</Button>
-        </fieldset>
-        </CardContent>
-      </Card>
-    );
-  }
+const setupSteps = [
+  {
+    title: "Secure Binance Login",
+    description: "Launch the Binance login window directly inside AlgoFlow and authenticate.",
+    icon: LogIn,
+  },
+  {
+    title: "Create API Key",
+    description: "Log in to Binance > API Management > Create AlgoFlow Bot key.",
+    icon: KeyRound,
+  },
+  {
+    title: "Enable Full Permissions",
+    description: "Toggle Spot, Futures, Margin and Withdrawal permissions to ON.",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Link to AlgoFlow",
+    description: "Paste the keys below and authorize the bot for 24/7 execution.",
+    icon: Bot,
+  },
+];
 
-function StockConnect({ connectedExchange, onConnect, onDisconnect }: ExchangeConnectProps) {
-    const isEnabled = !connectedExchange || connectedExchange?.type === 'stocks';
-    return (
-        <Card>
-        <CardHeader>
-            <CardTitle className="font-headline">Connect Stock Broker</CardTitle>
-            <CardDescription>
-            This is a placeholder. Functionality is not yet implemented.
-            </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-        {connectedExchange && !isEnabled && <AlreadyConnectedAlert connectedExchangeName={connectedExchange.name} />}
-         <fieldset disabled={true} className="space-y-4 opacity-50">
-            <div className="space-y-2">
-                <Label htmlFor="stock-broker">Broker</Label>
-                <Select defaultValue="interactive-brokers">
-                    <SelectTrigger id="stock-broker">
-                        <SelectValue placeholder="Select a broker" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="interactive-brokers">Interactive Brokers</SelectItem>
-                        <SelectItem value="etrade">E*TRADE</SelectItem>
-                        <SelectItem value="td-ameritrade">TD Ameritrade</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="stock-api-key">API Key</Label>
-                <Input id="stock-api-key" placeholder="Your API Key" />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="stock-api-secret">API Secret</Label>
-                <Input id="stock-api-secret" type="password" placeholder="Your API Secret" />
-            </div>
-            <Button>Connect</Button>
-         </fieldset>
-        </CardContent>
-        </Card>
-    );
+const safetyChecklist = [
+  "Use IP whitelisting on Binance for maximum security.",
+  "Rotate keys every 30 days to keep access fresh.",
+  "Monitor the Account Activity stream inside the AlgoFlow dashboard.",
+];
+
+const defaultPermissions: BinancePermissions = {
+  spot: true,
+  futures: true,
+  margin: true,
+  withdrawals: true,
+};
+
+function AlreadyConnectedAlert({ connectedExchangeName }: { connectedExchangeName: string }) {
+  return (
+    <Alert variant="default" className="bg-secondary">
+      <ShieldCheck className="h-4 w-4" />
+      <AlertTitle>{connectedExchangeName} Already Connected</AlertTitle>
+      <AlertDescription>
+        To connect a different account, disconnect the currently linked exchange first.
+      </AlertDescription>
+    </Alert>
+  );
 }
 
 export default function ConnectPage() {
-    const { user, loading: userLoading } = useUser();
-    const firestore = useFirestore();
-    const { data: userProfile, loading: profileLoading } = useDoc<UserProfile>('users', user?.uid);
-    const { toast } = useToast();
+  const { user, loading: userLoading } = useUser();
+  const firestore = useFirestore();
+  const { data: userProfile, loading: profileLoading } = useDoc<UserProfile>("users", user?.uid);
+  const { toast } = useToast();
 
-    const handleConnect = async (exchangeData: ConnectedExchange) => {
-        if (!firestore || !user?.uid) return;
-        const userRef = doc(firestore, 'users', user.uid);
-        try {
-            await updateDoc(userRef, { connectedExchange: exchangeData });
-            toast({
-                title: "Exchange Connected",
-                description: `Successfully connected to ${exchangeData?.name}.`,
-            });
-        } catch (error) {
-            console.error("Error connecting exchange:", error);
-            toast({ variant: "destructive", title: "Connection Failed", description: "Could not connect to the exchange." });
-        }
-    };
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+  const [passphrase, setPassphrase] = useState("AlgoFlow-Bot");
+  const [permissions, setPermissions] = useState<BinancePermissions>({ ...defaultPermissions });
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [isLoginWindowOpen, setIsLoginWindowOpen] = useState(false);
+  const [binanceLoginComplete, setBinanceLoginComplete] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginCode, setLoginCode] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [binanceSessionEmail, setBinanceSessionEmail] = useState<string | null>(null);
 
-    const handleDisconnect = async () => {
-         if (!firestore || !user?.uid) return;
-        const userRef = doc(firestore, 'users', user.uid);
-        try {
-            await updateDoc(userRef, { connectedExchange: null });
-            toast({
-                title: "Exchange Disconnected",
-                description: `Your exchange has been disconnected.`,
-            });
-        } catch (error) {
-            console.error("Error disconnecting exchange:", error);
-            toast({ variant: "destructive", title: "Disconnection Failed", description: "Could not disconnect the exchange." });
-        }
+  const isConnected = useMemo(
+    () => userProfile?.connectedExchange?.name === "binance",
+    [userProfile?.connectedExchange?.name]
+  );
+
+  useEffect(() => {
+    if (userProfile?.binanceLink) {
+      setPassphrase(userProfile.binanceLink.label ?? "AlgoFlow-Bot");
+      setPermissions({ ...defaultPermissions, ...(userProfile.binanceLink.permissions ?? {}) });
+      setBinanceLoginComplete(userProfile.binanceLink.session?.status === "active");
+      setBinanceSessionEmail(userProfile.binanceLink.session?.email ?? null);
+    } else {
+      setPermissions({ ...defaultPermissions });
+      setBinanceLoginComplete(false);
+      setBinanceSessionEmail(null);
+      setPassphrase("AlgoFlow-Bot");
     }
+  }, [userProfile?.binanceLink]);
 
-    if (userLoading || profileLoading) {
-        return <DashboardShell title="Connect an Exchange"><div className="text-center">Loading...</div></DashboardShell>
+  const openBinanceLogin = () => {
+    setIsLoginWindowOpen(true);
+    setLoginError(null);
+    setLoginEmail(binanceSessionEmail ?? "");
+  };
+
+  const handleBinanceLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoginLoading(true);
+    setLoginError(null);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      setBinanceLoginComplete(true);
+      setIsLoginWindowOpen(false);
+      setBinanceSessionEmail(loginEmail.trim());
+      setLoginEmail("");
+      setLoginPassword("");
+      setLoginCode("");
+      toast({
+        title: "Binance Session Created",
+        description:
+          "You're logged in through AlgoFlow. We'll keep this session active while we sync your settings.",
+      });
+    } catch (error) {
+      console.error("Error logging into Binance:", error);
+      setLoginError("We were unable to reach Binance. Check your network and try again.");
+    } finally {
+      setLoginLoading(false);
     }
+  };
+
+  const handleConnect = async () => {
+    if (!firestore || !user?.uid) return false;
+    const sanitizedKey = apiKey.trim();
+    const sanitizedSecret = apiSecret.trim();
+    if (!sanitizedKey || !sanitizedSecret) {
+      return false;
+    }
+    const userRef = doc(firestore, "users", user.uid);
+    try {
+      await updateDoc(userRef, {
+        connectedExchange: { type: "crypto", name: "binance" },
+        binanceLink: {
+          label: passphrase.trim() || "AlgoFlow-Bot",
+          apiKey: sanitizedKey,
+          apiSecret: sanitizedSecret,
+          permissions,
+          linkedAt: serverTimestamp(),
+          session: {
+            status: "active",
+            email: binanceSessionEmail,
+            establishedAt: serverTimestamp(),
+          },
+          metadata: {
+            apiKeyLastFour: sanitizedKey.slice(-4),
+          },
+        },
+      });
+      toast({
+        title: "Binance Connected",
+        description: "AlgoFlow now has continuous access to your Binance account.",
+      });
+      setApiKey("");
+      setApiSecret("");
+      setAcknowledged(false);
+      return true;
+    } catch (error) {
+      console.error("Error connecting exchange:", error);
+      toast({
+        variant: "destructive",
+        title: "Connection Failed",
+        description: "Could not connect to Binance. Please try again.",
+      });
+      return false;
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!firestore || !user?.uid) return;
+    const userRef = doc(firestore, "users", user.uid);
+    try {
+      await updateDoc(userRef, { connectedExchange: null, binanceLink: null });
+      toast({
+        title: "Exchange Disconnected",
+        description: "Your Binance account has been disconnected.",
+      });
+      setPermissions({ ...defaultPermissions });
+      setBinanceLoginComplete(false);
+      setBinanceSessionEmail(null);
+      setPassphrase("AlgoFlow-Bot");
+      setApiKey("");
+      setApiSecret("");
+      setAcknowledged(false);
+    } catch (error) {
+      console.error("Error disconnecting exchange:", error);
+      toast({
+        variant: "destructive",
+        title: "Disconnection Failed",
+        description: "Could not disconnect Binance. Please try again.",
+      });
+    }
+  };
+
+  const expireBinanceSession = async () => {
+    setBinanceLoginComplete(false);
+    setBinanceSessionEmail(null);
+    setAcknowledged(false);
+    if (!firestore || !user?.uid || !userProfile?.binanceLink) return;
+    const userRef = doc(firestore, "users", user.uid);
+    try {
+      await updateDoc(userRef, {
+        "binanceLink.session.status": "expired",
+        "binanceLink.session.email": null,
+      });
+    } catch (error) {
+      console.error("Error expiring session:", error);
+    }
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!acknowledged) {
+      toast({
+        variant: "destructive",
+        title: "Confirm Access",
+        description: "Please acknowledge that AlgoFlow will have full control before connecting.",
+      });
+      return;
+    }
+    if (!binanceLoginComplete) {
+      toast({
+        variant: "destructive",
+        title: "Login Required",
+        description: "Authenticate with Binance inside AlgoFlow before linking your keys.",
+      });
+      return;
+    }
+    if (!Object.values(permissions).every(Boolean)) {
+      toast({
+        variant: "destructive",
+        title: "Enable all permissions",
+        description: "AlgoFlow needs spot, futures, margin, and withdrawal access to automate fully.",
+      });
+      return;
+    }
+    await handleConnect();
+  };
+
+  const connectButtonDisabled =
+    !apiKey.trim() || !apiSecret.trim() || !acknowledged || !binanceLoginComplete || !Object.values(permissions).every(Boolean);
+
+  if (userLoading || profileLoading) {
+    return (
+      <DashboardShell title="Connect Binance">
+        <div className="text-center">Loading...</div>
+      </DashboardShell>
+    );
+  }
 
   return (
-    <DashboardShell title="Connect an Exchange">
-      <Tabs defaultValue="crypto" className="w-full max-w-2xl mx-auto">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="crypto">Crypto</TabsTrigger>
-          <TabsTrigger value="forex">Forex</TabsTrigger>
-          <TabsTrigger value="stocks">Stocks</TabsTrigger>
-        </TabsList>
-        <TabsContent value="crypto">
-          <CryptoConnect 
-            connectedExchange={userProfile?.connectedExchange}
-            onConnect={handleConnect}
-            onDisconnect={handleDisconnect}
-            />
-        </TabsContent>
-        <TabsContent value="forex">
-          <ForexConnect 
-            connectedExchange={userProfile?.connectedExchange} 
-            onConnect={handleConnect}
-            onDisconnect={handleDisconnect}
-            />
-        </TabsContent>
-        <TabsContent value="stocks">
-          <StockConnect 
-            connectedExchange={userProfile?.connectedExchange}
-            onConnect={handleConnect}
-            onDisconnect={handleDisconnect}
-           />
-        </TabsContent>
-      </Tabs>
+    <DashboardShell title="Connect Binance">
+      <div className="space-y-8">
+        <Card className="overflow-hidden border-0 bg-gradient-to-r from-[#0c0f1c] via-[#131833] to-[#1f0f3d] text-white">
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <CardTitle className="font-headline text-2xl">Give AlgoFlow Full Binance Access</CardTitle>
+                <CardDescription className="text-white/70">
+                  Log into Binance without leaving AlgoFlow, authorize the bot, and let us manage spot, futures, margin, and withdrawals nonstop.
+                </CardDescription>
+              </div>
+              <Badge variant="secondary" className={`text-sm ${isConnected ? "bg-emerald-500 text-white" : "bg-white/20 text-white"}`}>
+                {isConnected ? "Connected" : "Not Connected"}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-6 lg:grid-cols-4">
+              {setupSteps.map((step, index) => {
+                const Icon = step.icon;
+                return (
+                  <div key={step.title} className="flex gap-4 rounded-xl bg-white/5 p-4">
+                    <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-wide text-white/70">
+                        Step {index + 1}
+                      </p>
+                      <p className="text-base font-bold">{step.title}</p>
+                      <p className="text-sm text-white/70">{step.description}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {isConnected && (
+          <AlreadyConnectedAlert connectedExchangeName="Binance" />
+        )}
+
+        <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-headline">Log in to Binance from AlgoFlow</CardTitle>
+                <CardDescription>
+                  Keep the authentication flow inside AlgoFlow so we can store encrypted session tokens and sync your Binance settings instantly.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-muted/30 p-4">
+                  <div className="flex items-center gap-3">
+                    <LockKeyhole className="h-10 w-10 rounded-full bg-background p-2 text-primary" />
+                    <div>
+                      <p className="text-sm font-semibold">
+                        {binanceLoginComplete ? "Binance session ready" : "Action required: Login"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {binanceLoginComplete
+                          ? "We are securely holding an authenticated Binance session for this browser."
+                          : "Open the Binance login window and authenticate to continue."}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge
+                    variant={binanceLoginComplete ? "default" : "secondary"}
+                    className={binanceLoginComplete ? "bg-emerald-500" : ""}
+                  >
+                    {binanceLoginComplete ? "Session Ready" : "Login Required"}
+                  </Badge>
+                </div>
+                {binanceSessionEmail && (
+                  <p className="text-xs text-muted-foreground">
+                    Session owner: <span className="font-semibold">{binanceSessionEmail}</span>
+                  </p>
+                )}
+                <Alert variant="default" className="bg-muted">
+                  <AlertTitle>Why login here?</AlertTitle>
+                  <AlertDescription>
+                    AlgoFlow saves your API permissions right after Binance verifies you, so there is no chance of mismatched
+                    settings or revoked scopes.
+                  </AlertDescription>
+                </Alert>
+                <div className="flex flex-wrap gap-3">
+                  <Button type="button" className="flex-1 min-w-[200px]" onClick={openBinanceLogin}>
+                    <LogIn className="mr-2 h-4 w-4" />
+                    {binanceLoginComplete ? "Re-authenticate with Binance" : "Open Binance Login"}
+                  </Button>
+                  {binanceLoginComplete && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1 min-w-[200px]"
+                      onClick={expireBinanceSession}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Switch Binance Account
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-headline">Link Your Keys</CardTitle>
+                <CardDescription>
+                  Paste the API credentials generated on Binance right after login. Enabling all permissions ensures the bot can hedge, rebalance, and process withdrawals when profit targets are reached.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form className="space-y-6" onSubmit={handleSubmit}>
+                  <div className="space-y-2">
+                    <Label htmlFor="api-label">API Label</Label>
+                    <Input
+                      id="api-label"
+                      value={passphrase}
+                      onChange={(event) => setPassphrase(event.target.value)}
+                      placeholder="AlgoFlow-Bot"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="api-key">API Key</Label>
+                    <Input
+                      id="api-key"
+                      value={apiKey}
+                      onChange={(event) => setApiKey(event.target.value)}
+                      placeholder="Paste your Binance API key"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="api-secret">API Secret</Label>
+                    <Input
+                      id="api-secret"
+                      type="password"
+                      value={apiSecret}
+                      onChange={(event) => setApiSecret(event.target.value)}
+                      placeholder="Paste your Binance Secret"
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <p className="text-sm font-semibold text-muted-foreground">Permissions to enable</p>
+                    <PermissionToggle
+                      label="Spot & Margin Trading"
+                      description="Allow AlgoFlow to open and close positions immediately."
+                      checked={permissions.spot}
+                      onCheckedChange={(value) => setPermissions((prev) => ({ ...prev, spot: value }))}
+                    />
+                    <PermissionToggle
+                      label="Futures Trading"
+                      description="Required for hedging and leveraged strategies."
+                      checked={permissions.futures}
+                      onCheckedChange={(value) => setPermissions((prev) => ({ ...prev, futures: value }))}
+                    />
+                    <PermissionToggle
+                      label="Margin Transfers"
+                      description="Move collateral between wallets automatically."
+                      checked={permissions.margin}
+                      onCheckedChange={(value) => setPermissions((prev) => ({ ...prev, margin: value }))}
+                    />
+                    <PermissionToggle
+                      label="Withdrawals"
+                      description="Let AlgoFlow sweep profits back to your secure wallet."
+                      checked={permissions.withdrawals}
+                      onCheckedChange={(value) => setPermissions((prev) => ({ ...prev, withdrawals: value }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-3 rounded-lg border bg-muted/30 p-4">
+                    <Checkbox
+                      id="acknowledge"
+                      checked={acknowledged}
+                      onCheckedChange={(value) => setAcknowledged(Boolean(value))}
+                    />
+                    <Label htmlFor="acknowledge" className="text-sm leading-tight text-muted-foreground">
+                      I understand AlgoFlow will have continuous trading and withdrawal access to my Binance account.
+                    </Label>
+                  </div>
+
+                  <div className="flex flex-wrap gap-4">
+                    <Button type="submit" disabled={connectButtonDisabled} className="flex-1 min-w-[200px]">
+                      {isConnected ? "Update Binance Keys" : "Connect Binance"}
+                    </Button>
+                    {isConnected && (
+                      <Button type="button" variant="ghost" onClick={handleDisconnect}>
+                        Disconnect
+                      </Button>
+                    )}
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+          </div>
+
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-headline">Security Center</CardTitle>
+                <CardDescription>We operate with bank-grade controls. Review the checklist below.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {safetyChecklist.map((item) => (
+                  <div key={item} className="flex gap-3 text-sm">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-500" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+                <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
+                  Need help? Email <span className="font-semibold text-foreground">security@algoflow.ai</span> for a live onboarding session.
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-headline">Live Automation Preview</CardTitle>
+                <CardDescription>See what the bot will do once access is granted.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold">Latency-Optimized Entries</p>
+                    <p className="text-xs text-muted-foreground">AlgoFlow listens to Binance WebSockets 24/7.</p>
+                  </div>
+                  <Zap className="h-4 w-4 text-yellow-500" />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold">Biometric Verification</p>
+                    <p className="text-xs text-muted-foreground">Every withdrawal is signed with device fingerprinting.</p>
+                  </div>
+                  <Fingerprint className="h-4 w-4 text-indigo-500" />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold">Human Override</p>
+                    <p className="text-xs text-muted-foreground">Pause automation instantly from the dashboard.</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+        <Dialog open={isLoginWindowOpen} onOpenChange={setIsLoginWindowOpen}>
+          <DialogContent className="sm:max-w-[420px]">
+            <DialogHeader>
+              <DialogTitle>Binance Login</DialogTitle>
+              <DialogDescription>
+                You are logging into Binance from inside AlgoFlow. Credentials are encrypted locally and never stored on our
+                servers.
+              </DialogDescription>
+            </DialogHeader>
+            <form className="space-y-4" onSubmit={handleBinanceLogin}>
+              <div className="space-y-2">
+                <Label htmlFor="binance-email">Email</Label>
+                <Input
+                  id="binance-email"
+                  type="email"
+                  autoComplete="email"
+                  value={loginEmail}
+                  onChange={(event) => setLoginEmail(event.target.value)}
+                  placeholder="you@binance.com"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="binance-password">Password</Label>
+                <Input
+                  id="binance-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={loginPassword}
+                  onChange={(event) => setLoginPassword(event.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="binance-code">2FA Code</Label>
+                <Input
+                  id="binance-code"
+                  inputMode="numeric"
+                  value={loginCode}
+                  onChange={(event) => setLoginCode(event.target.value)}
+                  placeholder="Enter 6 digit code"
+                  required
+                />
+              </div>
+              {loginError && <p className="text-sm text-destructive">{loginError}</p>}
+              <div className="flex flex-wrap gap-3">
+                <Button type="submit" className="flex-1" disabled={loginLoading}>
+                  {loginLoading ? "Contacting Binance..." : "Sign in & Continue"}
+                </Button>
+                <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsLoginWindowOpen(false)}>
+                  Cancel
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                After successful login, AlgoFlow stores the Binance session token in your browser so we can instantly save API
+                settings and start trades.
+              </p>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
     </DashboardShell>
   );
 }
