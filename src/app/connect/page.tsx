@@ -239,18 +239,6 @@ export default function ConnectPage() {
       setWalletError(null);
     }
   }, [userProfile?.binanceLink, user?.email]);
-
-  useEffect(() => {
-    if (storedApiKey && storedApiSecret) {
-      void verifyBinanceKeys(storedApiKey, storedApiSecret, { fetchWallet: true, silent: true });
-    } else {
-      setBinanceVerified(false);
-      setAccountSummary(null);
-      setWalletBalance(null);
-      setWalletError(null);
-    }
-  }, [storedApiKey, storedApiSecret, verifyBinanceKeys]);
-
   const verifyBinanceKeys = useCallback(
     async (
       keyToVerify: string,
@@ -316,6 +304,17 @@ export default function ConnectPage() {
     },
     [fetchWalletBalance, toast, user?.email],
   );
+
+  useEffect(() => {
+    if (storedApiKey && storedApiSecret) {
+      void verifyBinanceKeys(storedApiKey, storedApiSecret, { fetchWallet: true, silent: true });
+    } else {
+      setBinanceVerified(false);
+      setAccountSummary(null);
+      setWalletBalance(null);
+      setWalletError(null);
+    }
+  }, [storedApiKey, storedApiSecret, verifyBinanceKeys]);
 
   const handleConnect = async () => {
     if (!firestore || !user?.uid) return false;
